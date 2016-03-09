@@ -29,12 +29,38 @@
 
 #include <octomap_server/OctomapServer.h>
 
+#include <stdexcept>
+
 using namespace octomap;
 using octomap_msgs::Octomap;
 
 bool is_equal (double a, double b, double epsilon = 1.0e-7)
 {
     return std::abs(a - b) < epsilon;
+}
+
+bool string_to_dvector ( const std::string& str, std::vector<double>& vec, std::size_t n, double def_val )
+{
+  std::size_t i=0;
+  vec.clear(); vec.reserve(n);
+  bool error = false;
+  while (i < str.size() && vec.size() < n) // parse out doubles
+  {
+    try {
+      double d = std::stod(str.substr(i), &i);
+      vec.push_back(d);
+    }
+    catch (const std::exception&)
+    {
+      error = true;
+      break;
+    }
+  }
+  while (vec.size() < n) // fill missing values with default
+  {
+    vec.push_back(def_val);
+  }
+  return !error;
 }
 
 namespace octomap_server{
@@ -52,6 +78,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_colorFactor(0.8),
   m_latchedTopics(true),
   m_publishFreeSpace(false),
+  m_num_cloud_streams(1),
   m_res(0.05),
   m_treeDepth(0),
   m_maxTreeDepth(0),
@@ -99,7 +126,11 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   // distance of found plane from z=0 to be detected as ground (e.g. to exclude tables)
   private_nh.param("ground_filter/plane_distance", m_groundFilterPlaneDistance, m_groundFilterPlaneDistance);
 
+  std::string str_maxRanges;
+  private_nh.param("num_cloud_streams", m_num_cloud_streams, m_num_cloud_streams);
   private_nh.param("sensor_model/max_range", m_maxRange, m_maxRange);
+  private_nh.param("sensor_model/max_ranges", str_maxRanges, std::string(""));
+  string_to_dvector(str_maxRanges, m_cloud_streams_maxRange, m_num_cloud_streams, m_maxRange);
 
   private_nh.param("resolution", m_res, m_res);
   private_nh.param("sensor_model/hit", probHit, 0.7);
@@ -345,7 +376,7 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   }
 
 
-  insertScan(sensorToWorldTf.getOrigin(), pc_ground, pc_nonground);
+  insertScan(sensorToWorldTf.getOrigin(), pc_ground, pc_nonground, m_maxRange);
 
   double total_elapsed = (ros::WallTime::now() - startTime).toSec();
   ROS_DEBUG("Pointcloud insertion in OctomapServer done (%zu+%zu pts (ground/nonground), %f sec)", pc_ground.size(), pc_nonground.size(), total_elapsed);
@@ -353,7 +384,7 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   publishAll(cloud->header.stamp);
 }
 
-void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const PCLPointCloud& ground, const PCLPointCloud& nonground){
+void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const PCLPointCloud& ground, const PCLPointCloud& nonground, double maxRange){
   point3d sensorOrigin = pointTfToOctomap(sensorOriginTf);
 
   if (!m_octree->coordToKeyChecked(sensorOrigin, m_updateBBXMin)
@@ -372,8 +403,8 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const PCLPointCl
   for (PCLPointCloud::const_iterator it = ground.begin(); it != ground.end(); ++it){
     point3d point(it->x, it->y, it->z);
     // maxrange check
-    if ((m_maxRange > 0.0) && ((point - sensorOrigin).norm() > m_maxRange) ) {
-      point = sensorOrigin + (point - sensorOrigin).normalized() * m_maxRange;
+    if ((maxRange > 0.0) && ((point - sensorOrigin).norm() > maxRange) ) {
+      point = sensorOrigin + (point - sensorOrigin).normalized() * maxRange;
     }
 
     // only clear space (ground points)
@@ -394,7 +425,7 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const PCLPointCl
   for (PCLPointCloud::const_iterator it = nonground.begin(); it != nonground.end(); ++it){
     point3d point(it->x, it->y, it->z);
     // maxrange check
-    if ((m_maxRange < 0.0) || ((point - sensorOrigin).norm() <= m_maxRange) ) {
+    if ((maxRange < 0.0) || ((point - sensorOrigin).norm() <= maxRange) ) {
 
       // free cells
       if (m_octree->computeRayKeys(sensorOrigin, point, m_keyRay)){
@@ -417,7 +448,7 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const PCLPointCl
 #endif
       }
     } else {// ray longer than maxrange:;
-      point3d new_end = sensorOrigin + (point - sensorOrigin).normalized() * m_maxRange;
+      point3d new_end = sensorOrigin + (point - sensorOrigin).normalized() * maxRange;
       if (m_octree->computeRayKeys(sensorOrigin, new_end, m_keyRay)){
         free_cells.insert(m_keyRay.begin(), m_keyRay.end());
 
@@ -1135,39 +1166,48 @@ void OctomapServer::reconfigureCallback(octomap_server::OctomapServerConfig& con
     m_filterGroundPlane         = config.filter_ground;
     m_compressMap               = config.compress_map;
     m_incrementalUpdate         = config.incremental_2D_projection;
+    m_num_cloud_streams         = config.num_cloud_streams_in;
 
     // Parameters with a namespace require an special treatment at the beginning, as dynamic reconfigure
     // will overwrite them because the server is not able to match parameters' names.
     if (m_initConfig){
-		// If parameters do not have the default value, dynamic reconfigure server should be updated.
-		if(!is_equal(m_groundFilterDistance, 0.04))
+  		// If parameters do not have the default value, dynamic reconfigure server should be updated.
+  		if(!is_equal(m_groundFilterDistance, 0.04))
           config.ground_filter_distance = m_groundFilterDistance;
-		if(!is_equal(m_groundFilterAngle, 0.15))
+  		if(!is_equal(m_groundFilterAngle, 0.15))
           config.ground_filter_angle = m_groundFilterAngle;
-	    if(!is_equal( m_groundFilterPlaneDistance, 0.07))
+      if(!is_equal( m_groundFilterPlaneDistance, 0.07))
           config.ground_filter_plane_distance = m_groundFilterPlaneDistance;
-        if(!is_equal(m_maxRange, -1.0))
+      if(!is_equal(m_maxRange, -1.0))
           config.sensor_model_max_range = m_maxRange;
-        if(!is_equal(m_octree->getProbHit(), 0.7))
+      std::string str_maxRanges;
+      for (std::size_t i; i < m_cloud_streams_maxRange.size(); ++i)
+      {
+        str_maxRanges.append(std::to_string(m_cloud_streams_maxRange[i]));
+      }
+      config.sensor_model_max_ranges = str_maxRanges;
+      if(!is_equal(m_octree->getProbHit(), 0.7))
           config.sensor_model_hit = m_octree->getProbHit();
-	    if(!is_equal(m_octree->getProbMiss(), 0.4))
+      if(!is_equal(m_octree->getProbMiss(), 0.4))
           config.sensor_model_miss = m_octree->getProbMiss();
-		if(!is_equal(m_octree->getClampingThresMin(), 0.12))
+  		if(!is_equal(m_octree->getClampingThresMin(), 0.12))
           config.sensor_model_min = m_octree->getClampingThresMin();
-		if(!is_equal(m_octree->getClampingThresMax(), 0.97))
+  		if(!is_equal(m_octree->getClampingThresMax(), 0.97))
           config.sensor_model_max = m_octree->getClampingThresMax();
-        m_initConfig = false;
+      m_initConfig = false;
 
 	    boost::recursive_mutex::scoped_lock reconf_lock(m_config_mutex);
-        m_reconfigureServer.updateConfig(config);
+      m_reconfigureServer.updateConfig(config);
     }
     else{
-	  m_groundFilterDistance      = config.ground_filter_distance;
+  	  m_groundFilterDistance      = config.ground_filter_distance;
       m_groundFilterAngle         = config.ground_filter_angle;
       m_groundFilterPlaneDistance = config.ground_filter_plane_distance;
-      m_maxRange                  = config.sensor_model_max_range;
       m_octree->setClampingThresMin(config.sensor_model_min);
       m_octree->setClampingThresMax(config.sensor_model_max);
+      m_maxRange                  = config.sensor_model_max_range;
+      std::string str_maxRanges   = config.sensor_model_max_ranges;
+      string_to_dvector(str_maxRanges, m_cloud_streams_maxRange, m_num_cloud_streams, m_maxRange);
 
      // Checking values that might create unexpected behaviors.
       if (is_equal(config.sensor_model_hit, 1.0))
