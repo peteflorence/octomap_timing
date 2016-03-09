@@ -29,7 +29,7 @@
 
 #include <octomap_server/OctomapServer.h>
 
-#include <stdexcept>
+#include <boost/lexical_cast.hpp>
 
 using namespace octomap;
 using octomap_msgs::Octomap;
@@ -41,13 +41,21 @@ bool is_equal (double a, double b, double epsilon = 1.0e-7)
 
 bool string_to_dvector ( const std::string& str, std::vector<double>& vec, std::size_t n, double def_val )
 {
-  std::size_t i=0;
+  std::size_t i,j;
+  i = 0;
   vec.clear(); vec.reserve(n);
   bool error = false;
   while (i < str.size() && vec.size() < n) // parse out doubles
   {
+    // skip whitespace
+    i = str.find_first_not_of(' ', i);
+    j = str.find(' ', i+1);
+    if (j == std::string::npos)
+    {
+      j = str.size();
+    }
     try {
-      double d = std::stod(str.substr(i), &i);
+      double d = boost::lexical_cast<double>(str.substr(i,j-i));
       vec.push_back(d);
     }
     catch (const std::exception&)
@@ -55,6 +63,7 @@ bool string_to_dvector ( const std::string& str, std::vector<double>& vec, std::
       error = true;
       break;
     }
+    i = j;
   }
   while (vec.size() < n) // fill missing values with default
   {
@@ -766,7 +775,7 @@ bool OctomapServer::clearBBXSrv(BBXSrv::Request& req, BBXSrv::Response& resp){
       end=m_octree->end_leafs_bbx(); it!= end; ++it){
 
     it->setLogOdds(octomap::logodds(thresMin));
-    //			m_octree->updateNode(it.getKey(), -6.0f);
+    //      m_octree->updateNode(it.getKey(), -6.0f);
   }
   // TODO: eval which is faster (setLogOdds+updateInner or updateNode)
   m_octree->updateInnerOccupancy();
@@ -1171,36 +1180,36 @@ void OctomapServer::reconfigureCallback(octomap_server::OctomapServerConfig& con
     // Parameters with a namespace require an special treatment at the beginning, as dynamic reconfigure
     // will overwrite them because the server is not able to match parameters' names.
     if (m_initConfig){
-  		// If parameters do not have the default value, dynamic reconfigure server should be updated.
-  		if(!is_equal(m_groundFilterDistance, 0.04))
+      // If parameters do not have the default value, dynamic reconfigure server should be updated.
+      if(!is_equal(m_groundFilterDistance, 0.04))
           config.ground_filter_distance = m_groundFilterDistance;
-  		if(!is_equal(m_groundFilterAngle, 0.15))
+      if(!is_equal(m_groundFilterAngle, 0.15))
           config.ground_filter_angle = m_groundFilterAngle;
       if(!is_equal( m_groundFilterPlaneDistance, 0.07))
           config.ground_filter_plane_distance = m_groundFilterPlaneDistance;
       if(!is_equal(m_maxRange, -1.0))
           config.sensor_model_max_range = m_maxRange;
-      std::string str_maxRanges;
+      std::string str_maxRanges("");
       for (std::size_t i; i < m_cloud_streams_maxRange.size(); ++i)
       {
-        str_maxRanges.append(std::to_string(m_cloud_streams_maxRange[i]));
+        str_maxRanges.append(boost::lexical_cast<std::string>(m_cloud_streams_maxRange[i]));
       }
       config.sensor_model_max_ranges = str_maxRanges;
       if(!is_equal(m_octree->getProbHit(), 0.7))
           config.sensor_model_hit = m_octree->getProbHit();
       if(!is_equal(m_octree->getProbMiss(), 0.4))
           config.sensor_model_miss = m_octree->getProbMiss();
-  		if(!is_equal(m_octree->getClampingThresMin(), 0.12))
+      if(!is_equal(m_octree->getClampingThresMin(), 0.12))
           config.sensor_model_min = m_octree->getClampingThresMin();
-  		if(!is_equal(m_octree->getClampingThresMax(), 0.97))
+      if(!is_equal(m_octree->getClampingThresMax(), 0.97))
           config.sensor_model_max = m_octree->getClampingThresMax();
       m_initConfig = false;
 
-	    boost::recursive_mutex::scoped_lock reconf_lock(m_config_mutex);
+      boost::recursive_mutex::scoped_lock reconf_lock(m_config_mutex);
       m_reconfigureServer.updateConfig(config);
     }
     else{
-  	  m_groundFilterDistance      = config.ground_filter_distance;
+      m_groundFilterDistance      = config.ground_filter_distance;
       m_groundFilterAngle         = config.ground_filter_angle;
       m_groundFilterPlaneDistance = config.ground_filter_plane_distance;
       m_octree->setClampingThresMin(config.sensor_model_min);
@@ -1211,12 +1220,12 @@ void OctomapServer::reconfigureCallback(octomap_server::OctomapServerConfig& con
 
      // Checking values that might create unexpected behaviors.
       if (is_equal(config.sensor_model_hit, 1.0))
-		config.sensor_model_hit -= 1.0e-6;
+    config.sensor_model_hit -= 1.0e-6;
       m_octree->setProbHit(config.sensor_model_hit);
-	  if (is_equal(config.sensor_model_miss, 0.0))
-		config.sensor_model_miss += 1.0e-6;
+    if (is_equal(config.sensor_model_miss, 0.0))
+    config.sensor_model_miss += 1.0e-6;
       m_octree->setProbMiss(config.sensor_model_miss);
-	}
+  }
   }
   publishAll();
 }
