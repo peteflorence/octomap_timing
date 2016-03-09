@@ -30,7 +30,7 @@
 #ifndef OCTOMAP_SERVER_OCTOMAPSERVER_H
 #define OCTOMAP_SERVER_OCTOMAPSERVER_H
 
- #include <vector>
+#include <vector>
 
 #include <ros/ros.h>
 #include <visualization_msgs/MarkerArray.h>
@@ -97,7 +97,7 @@ public:
   bool clearBBXSrv(BBXSrv::Request& req, BBXSrv::Response& resp);
   bool resetSrv(std_srvs::Empty::Request& req, std_srvs::Empty::Response& resp);
 
-  virtual void insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud);
+  virtual void insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud, std::size_t src_id);
   virtual bool openFile(const std::string& filename);
 
 protected:
@@ -202,8 +202,8 @@ protected:
   static std_msgs::ColorRGBA heightMapColor(double h);
   ros::NodeHandle m_nh;
   ros::Publisher  m_markerPub, m_binaryMapPub, m_fullMapPub, m_pointCloudPub, m_collisionObjectPub, m_mapPub, m_cmapPub, m_fmapPub, m_fmarkerPub;
-  message_filters::Subscriber<sensor_msgs::PointCloud2>* m_pointCloudSub;
-  tf::MessageFilter<sensor_msgs::PointCloud2>* m_tfPointCloudSub;
+  std::vector<message_filters::Subscriber<sensor_msgs::PointCloud2>*> m_pointCloudSubVec;
+  std::vector<tf::MessageFilter<sensor_msgs::PointCloud2>*> m_tfPointCloudSubVec;
   ros::ServiceServer m_octomapBinaryService, m_octomapFullService, m_clearBBXService, m_resetService;
   tf::TransformListener m_tfListener;
   boost::recursive_mutex m_config_mutex;

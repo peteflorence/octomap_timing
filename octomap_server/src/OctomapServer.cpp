@@ -76,8 +76,6 @@ namespace octomap_server{
 
 OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
 : m_nh(),
-  m_pointCloudSub(NULL),
-  m_tfPointCloudSub(NULL),
   m_reconfigureServer(m_config_mutex),
   m_octree(NULL),
   m_maxRange(-1.0),
@@ -213,9 +211,21 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_mapPub = m_nh.advertise<nav_msgs::OccupancyGrid>("projected_map", 5, m_latchedTopics);
   m_fmarkerPub = m_nh.advertise<visualization_msgs::MarkerArray>("free_cells_vis_array", 1, m_latchedTopics);
 
-  m_pointCloudSub = new message_filters::Subscriber<sensor_msgs::PointCloud2> (m_nh, "cloud_in", 5);
-  m_tfPointCloudSub = new tf::MessageFilter<sensor_msgs::PointCloud2> (*m_pointCloudSub, m_tfListener, m_worldFrameId, 5);
-  m_tfPointCloudSub->registerCallback(boost::bind(&OctomapServer::insertCloudCallback, this, _1));
+  for (std::size_t i=0; i < m_num_cloud_streams; ++i)
+  {
+    char buffer[32];
+    if (i == 0)
+    {
+      sprintf(buffer, "cloud_in");
+    }
+    else
+    {
+      sprintf(buffer, "cloud_in%d", (int) i);
+    }
+    m_pointCloudSubVec.push_back(new message_filters::Subscriber<sensor_msgs::PointCloud2> (m_nh, "cloud_in", 5));
+    m_tfPointCloudSubVec.push_back(new tf::MessageFilter<sensor_msgs::PointCloud2> (*m_pointCloudSubVec[i], m_tfListener, m_worldFrameId, 5));
+    m_tfPointCloudSubVec[i]->registerCallback(boost::bind(&OctomapServer::insertCloudCallback, this, _1, i));   // bind source id i to callback
+  }
 
   m_octomapBinaryService = m_nh.advertiseService("octomap_binary", &OctomapServer::octomapBinarySrv, this);
   m_octomapFullService = m_nh.advertiseService("octomap_full", &OctomapServer::octomapFullSrv, this);
@@ -228,16 +238,17 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
 }
 
 OctomapServer::~OctomapServer(){
-  if (m_tfPointCloudSub){
-    delete m_tfPointCloudSub;
-    m_tfPointCloudSub = NULL;
+  // Release subscribers in reverse order
+  while (m_tfPointCloudSubVec.size() > 0)
+  {
+    delete m_tfPointCloudSubVec.back();
+    m_tfPointCloudSubVec.pop_back();
   }
-
-  if (m_pointCloudSub){
-    delete m_pointCloudSub;
-    m_pointCloudSub = NULL;
+  while (m_pointCloudSubVec.size() > 0)
+  {
+    delete m_pointCloudSubVec.back();
+    m_pointCloudSubVec.pop_back();
   }
-
 
   if (m_octree){
     delete m_octree;
@@ -299,7 +310,13 @@ bool OctomapServer::openFile(const std::string& filename){
 
 }
 
-void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud){
+void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud, std::size_t src_id){
+  if (src_id > m_num_cloud_streams)
+  {
+    ROS_ERROR_STREAM("Pointcloud callback from invalid source");
+    return;
+  }
+
   ros::WallTime startTime = ros::WallTime::now();
 
 
@@ -385,7 +402,7 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   }
 
 
-  insertScan(sensorToWorldTf.getOrigin(), pc_ground, pc_nonground, m_maxRange);
+  insertScan(sensorToWorldTf.getOrigin(), pc_ground, pc_nonground, m_cloud_streams_maxRange[src_id]);
 
   double total_elapsed = (ros::WallTime::now() - startTime).toSec();
   ROS_DEBUG("Pointcloud insertion in OctomapServer done (%zu+%zu pts (ground/nonground), %f sec)", pc_ground.size(), pc_nonground.size(), total_elapsed);
