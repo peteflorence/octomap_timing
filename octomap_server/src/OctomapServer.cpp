@@ -134,7 +134,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   private_nh.param("ground_filter/plane_distance", m_groundFilterPlaneDistance, m_groundFilterPlaneDistance);
 
   std::string str_maxRanges;
-  private_nh.param("num_cloud_streams", m_num_cloud_streams, m_num_cloud_streams);
+  private_nh.param("num_cloud_streams_in", m_num_cloud_streams, m_num_cloud_streams);
   private_nh.param("sensor_model/max_range", m_maxRange, m_maxRange);
   private_nh.param("sensor_model/max_ranges", str_maxRanges, std::string(""));
   string_to_dvector(str_maxRanges, m_cloud_streams_maxRange, m_num_cloud_streams, m_maxRange);
