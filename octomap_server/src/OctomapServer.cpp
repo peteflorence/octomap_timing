@@ -86,6 +86,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_latchedTopics(true),
   m_publishFreeSpace(false),
   m_num_cloud_streams(1),
+  m_publishUpdateStats(false),
   m_res(0.05),
   m_treeDepth(0),
   m_maxTreeDepth(0),
@@ -204,12 +205,15 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   } else
     ROS_INFO("Publishing non-latched (topics are only prepared as needed, will only be re-published on map change");
 
+  private_nh.param("publish_update_stats", m_publishUpdateStats, m_publishUpdateStats);
+
   m_markerPub = m_nh.advertise<visualization_msgs::MarkerArray>("occupied_cells_vis_array", 1, m_latchedTopics);
   m_binaryMapPub = m_nh.advertise<Octomap>("octomap_binary", 1, m_latchedTopics);
   m_fullMapPub = m_nh.advertise<Octomap>("octomap_full", 1, m_latchedTopics);
   m_pointCloudPub = m_nh.advertise<sensor_msgs::PointCloud2>("octomap_point_cloud_centers", 1, m_latchedTopics);
   m_mapPub = m_nh.advertise<nav_msgs::OccupancyGrid>("projected_map", 5, m_latchedTopics);
   m_fmarkerPub = m_nh.advertise<visualization_msgs::MarkerArray>("free_cells_vis_array", 1, m_latchedTopics);
+  m_updateStatsPub = m_nh.advertise<performance_msgs::OctomapUpdateStats>("update_stats", 1);
 
   for (std::size_t i=0; i < m_num_cloud_streams; ++i)
   {
@@ -319,7 +323,6 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
 
   ros::WallTime startTime = ros::WallTime::now();
 
-
   //
   // ground filtering in base frame
   //
@@ -406,6 +409,19 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
 
   double total_elapsed = (ros::WallTime::now() - startTime).toSec();
   ROS_DEBUG("Pointcloud insertion in OctomapServer done (%zu+%zu pts (ground/nonground), %f sec)", pc_ground.size(), pc_nonground.size(), total_elapsed);
+
+  if (m_publishUpdateStats)
+  {
+    performance_msgs::OctomapUpdateStats stats_msg;
+    stats_msg.header.frame_id = cloud->header.frame_id;
+    stats_msg.header.stamp = ros::Time::now();
+    stats_msg.cloud_src_id = src_id;
+    stats_msg.num_cloud_points = cloud->height*cloud->width;
+    stats_msg.latency_s = ros::Duration(stats_msg.header.stamp - cloud->header.stamp).toSec();
+    stats_msg.update_s = total_elapsed;
+
+    m_updateStatsPub.publish(stats_msg);
+  }
 
   publishAll(cloud->header.stamp);
 }

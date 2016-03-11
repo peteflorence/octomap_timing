@@ -10,11 +10,14 @@ set(PACKAGE_DEPENDENCIES
   nav_msgs
   std_msgs
   std_srvs
+  performance_msgs
   octomap_ros
   octomap_msgs
   dynamic_reconfigure
-  nodelet  
+  nodelet
 )
+
+set(CMAKE_BUILD_TYPE Release)
 
 find_package(catkin REQUIRED COMPONENTS ${PACKAGE_DEPENDENCIES})
 
@@ -29,7 +32,6 @@ include_directories(
   ${PCL_INCLUDE_DIRS}
   ${OCTOMAP_INCLUDE_DIRS}
 )
-
 
 generate_dynamic_reconfigure_options(cfg/OctomapServer.cfg)
 
