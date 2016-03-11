@@ -30,6 +30,8 @@
 #ifndef OCTOMAP_SERVER_OCTOMAPSERVER_H
 #define OCTOMAP_SERVER_OCTOMAPSERVER_H
 
+#include <vector>
+
 #include <ros/ros.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <nav_msgs/OccupancyGrid.h>
@@ -96,7 +98,7 @@ public:
   bool clearBBXSrv(BBXSrv::Request& req, BBXSrv::Response& resp);
   bool resetSrv(std_srvs::Empty::Request& req, std_srvs::Empty::Response& resp);
 
-  virtual void insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud);
+  virtual void insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud, std::size_t src_id);
   virtual bool openFile(const std::string& filename);
 
 protected:
@@ -134,7 +136,7 @@ protected:
   * @param ground scan endpoints on the ground plane (only clear space)
   * @param nonground all other endpoints (clear up to occupied endpoint)
   */
-  virtual void insertScan(const tf::Point& sensorOrigin, const PCLPointCloud& ground, const PCLPointCloud& nonground);
+  virtual void insertScan(const tf::Point& sensorOrigin, const PCLPointCloud& ground, const PCLPointCloud& nonground, double maxRange=-1.0);
 
   /// label the input cloud "pc" into ground and nonground. Should be in the robot's fixed frame (not world!)
   void filterGroundPlane(const PCLPointCloud& pc, PCLPointCloud& ground, PCLPointCloud& nonground) const;
@@ -201,8 +203,8 @@ protected:
   static std_msgs::ColorRGBA heightMapColor(double h);
   ros::NodeHandle m_nh;
   ros::Publisher  m_markerPub, m_binaryMapPub, m_fullMapPub, m_pointCloudPub, m_collisionObjectPub, m_mapPub, m_cmapPub, m_fmapPub, m_fmarkerPub, m_updateStatsPub;
-  message_filters::Subscriber<sensor_msgs::PointCloud2>* m_pointCloudSub;
-  tf::MessageFilter<sensor_msgs::PointCloud2>* m_tfPointCloudSub;
+  std::vector<message_filters::Subscriber<sensor_msgs::PointCloud2>*> m_pointCloudSubVec;
+  std::vector<tf::MessageFilter<sensor_msgs::PointCloud2>*> m_tfPointCloudSubVec;
   ros::ServiceServer m_octomapBinaryService, m_octomapFullService, m_clearBBXService, m_resetService;
   tf::TransformListener m_tfListener;
   boost::recursive_mutex m_config_mutex;
@@ -224,6 +226,9 @@ protected:
   bool m_latchedTopics;
   bool m_publishFreeSpace;
   bool m_publishUpdateStats;
+
+  int m_num_cloud_streams;
+  std::vector<double> m_cloud_streams_maxRange;
 
   double m_res;
   unsigned m_treeDepth;

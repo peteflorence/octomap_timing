@@ -33,7 +33,6 @@ include_directories(
   ${OCTOMAP_INCLUDE_DIRS}
 )
 
-
 generate_dynamic_reconfigure_options(cfg/OctomapServer.cfg)
 
 catkin_package(
