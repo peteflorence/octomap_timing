@@ -47,6 +47,7 @@ set(LINK_LIBS
   ${catkin_LIBRARIES}
   ${PCL_LIBRARIES}
 )
+link_directories( /opt/ros/indigo/lib )
 
 add_library(${PROJECT_NAME} src/OctomapServer.cpp src/OctomapServerMultilayer.cpp src/TrackingOctomapServer.cpp)
 target_link_libraries(${PROJECT_NAME} ${LINK_LIBS})
