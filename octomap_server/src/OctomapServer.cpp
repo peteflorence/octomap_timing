@@ -238,7 +238,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
 
   dynamic_reconfigure::Server<OctomapServerConfig>::CallbackType f;
   f = boost::bind(&OctomapServer::reconfigureCallback, this, _1, _2);
-  m_reconfigureServer.setCallback(f);
+  // m_reconfigureServer.setCallback(f);
 }
 
 OctomapServer::~OctomapServer(){
