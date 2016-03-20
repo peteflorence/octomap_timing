@@ -64,6 +64,7 @@
 #include <octomap_msgs/BoundingBoxQuery.h>
 #include <octomap_msgs/conversions.h>
 #include <perception_metrics_msgs/OctomapUpdateStats.h>
+#include <fla_msgs/ProcessStatus.h>
 
 #include <octomap_ros/conversions.h>
 #include <octomap/octomap.h>
@@ -127,6 +128,7 @@ protected:
   void publishBinaryOctoMap(const ros::Time& rostime = ros::Time::now()) const;
   void publishFullOctoMap(const ros::Time& rostime = ros::Time::now()) const;
   virtual void publishAll(const ros::Time& rostime = ros::Time::now());
+  void heartbeatTimerCallback(const ros::TimerEvent& event) const;
 
   /**
   * @brief update occupancy map with a scan labeled as ground and nonground.
@@ -202,13 +204,14 @@ protected:
 
   static std_msgs::ColorRGBA heightMapColor(double h);
   ros::NodeHandle m_nh;
-  ros::Publisher  m_markerPub, m_binaryMapPub, m_fullMapPub, m_pointCloudPub, m_collisionObjectPub, m_mapPub, m_cmapPub, m_fmapPub, m_fmarkerPub, m_updateStatsPub;
+  ros::Publisher  m_markerPub, m_binaryMapPub, m_fullMapPub, m_pointCloudPub, m_collisionObjectPub, m_mapPub, m_cmapPub, m_fmapPub, m_fmarkerPub, m_updateStatsPub, m_heartbeatPub;
   std::vector<message_filters::Subscriber<sensor_msgs::PointCloud2>*> m_pointCloudSubVec;
   std::vector<tf::MessageFilter<sensor_msgs::PointCloud2>*> m_tfPointCloudSubVec;
   ros::ServiceServer m_octomapBinaryService, m_octomapFullService, m_clearBBXService, m_resetService;
   tf::TransformListener m_tfListener;
   boost::recursive_mutex m_config_mutex;
   dynamic_reconfigure::Server<OctomapServerConfig> m_reconfigureServer;
+  ros::Timer m_heartbeat_timer;
 
   OcTreeT* m_octree;
   octomap::KeyRay m_keyRay;  // temp storage for ray casting

@@ -10,6 +10,7 @@ set(PACKAGE_DEPENDENCIES
   nav_msgs
   std_msgs
   std_srvs
+  fla_msgs
   perception_metrics_msgs
   octomap_ros
   octomap_msgs

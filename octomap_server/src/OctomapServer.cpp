@@ -30,6 +30,7 @@
 #include <octomap_server/OctomapServer.h>
 
 #include <boost/lexical_cast.hpp>
+#include <unistd.h>
 
 using namespace octomap;
 using octomap_msgs::Octomap;
@@ -214,6 +215,9 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_mapPub = m_nh.advertise<nav_msgs::OccupancyGrid>("projected_map", 5, m_latchedTopics);
   m_fmarkerPub = m_nh.advertise<visualization_msgs::MarkerArray>("free_cells_vis_array", 1, m_latchedTopics);
   m_updateStatsPub = m_nh.advertise<perception_metrics_msgs::OctomapUpdateStats>("update_stats", 1);
+  m_heartbeatPub = m_nh.advertise<fla_msgs::ProcessStatus>("/globalstatus", 0);
+
+  m_heartbeat_timer = m_nh.createTimer(ros::Duration(0.1), &OctomapServer::heartbeatTimerCallback, this);
 
   for (std::size_t i=0; i < m_num_cloud_streams; ++i)
   {
@@ -312,6 +316,19 @@ bool OctomapServer::openFile(const std::string& filename){
 
   return true;
 
+}
+
+void OctomapServer::heartbeatTimerCallback(const ros::TimerEvent& event) const
+{
+  fla_msgs::ProcessStatus status_msg;
+  status_msg.id = 30; // FLA node id
+  status_msg.pid = getpid();
+  // assume node is good as long as this callback is running
+  status_msg.status = fla_msgs::ProcessStatus::READY;
+  status_msg.arg = 0;
+
+  m_heartbeatPub.publish(status_msg);
+  return;
 }
 
 void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud, std::size_t src_id){
