@@ -213,7 +213,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_pointCloudPub = m_nh.advertise<sensor_msgs::PointCloud2>("octomap_point_cloud_centers", 1, m_latchedTopics);
   m_mapPub = m_nh.advertise<nav_msgs::OccupancyGrid>("projected_map", 5, m_latchedTopics);
   m_fmarkerPub = m_nh.advertise<visualization_msgs::MarkerArray>("free_cells_vis_array", 1, m_latchedTopics);
-  m_updateStatsPub = m_nh.advertise<perception_metrics::OctomapUpdateStats>("update_stats", 1);
+  m_updateStatsPub = m_nh.advertise<perception_metrics_msgs::OctomapUpdateStats>("update_stats", 1);
 
   for (std::size_t i=0; i < m_num_cloud_streams; ++i)
   {
@@ -412,7 +412,7 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
 
   if (m_publishUpdateStats)
   {
-    perception_metrics::OctomapUpdateStats stats_msg;
+    perception_metrics_msgs::OctomapUpdateStats stats_msg;
     stats_msg.header.frame_id = cloud->header.frame_id;
     stats_msg.header.stamp = ros::Time::now();
     stats_msg.cloud_src_id = src_id;

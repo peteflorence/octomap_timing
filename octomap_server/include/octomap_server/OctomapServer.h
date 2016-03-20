@@ -63,7 +63,7 @@
 #include <octomap_msgs/GetOctomap.h>
 #include <octomap_msgs/BoundingBoxQuery.h>
 #include <octomap_msgs/conversions.h>
-#include <perception_metrics/OctomapUpdateStats.h>
+#include <perception_metrics_msgs/OctomapUpdateStats.h>
 
 #include <octomap_ros/conversions.h>
 #include <octomap/octomap.h>
