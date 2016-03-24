@@ -78,6 +78,7 @@ namespace octomap_server{
 OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
 : m_nh(),
   m_reconfigureServer(m_config_mutex),
+  m_first_cloud_received(false),
   m_octree(NULL),
   m_maxRange(-1.0),
   m_worldFrameId("/map"), m_baseFrameId("base_footprint"),
@@ -323,9 +324,32 @@ void OctomapServer::heartbeatTimerCallback(const ros::TimerEvent& event) const
   fla_msgs::ProcessStatus status_msg;
   status_msg.id = 30; // FLA node id
   status_msg.pid = getpid();
-  // assume node is good as long as this callback is running
-  status_msg.status = fla_msgs::ProcessStatus::READY;
-  status_msg.arg = 0;
+  if (!m_first_cloud_received)
+  {
+    // We haven't yet received our first input cloud
+    status_msg.status = fla_msgs::ProcessStatus::INIT;
+    status_msg.arg = 1; // "Waiting on point cloud"
+  }
+  else if (m_last_cloud_received == ros::Time(0))
+  {
+    // ROS (sim) clock wasn't published yet
+    // So we aren't ready
+    status_msg.status = fla_msgs::ProcessStatus::INIT;
+    status_msg.arg = 2; // "Waiting on ROS clock"
+  }
+  else if(ros::Time::now() - m_last_cloud_received > ros::Duration(0.5))
+  {
+    // It's been over 0.5 seconds since we got an input cloud
+    // Raise alarm
+    status_msg.status = fla_msgs::ProcessStatus::ALARM;
+    status_msg.arg = 1; // "Time since last input cloud longer than expected"
+  }
+  else
+  {
+    // assume node is good
+    status_msg.status = fla_msgs::ProcessStatus::READY;
+    status_msg.arg = 0;
+  }
 
   m_heartbeatPub.publish(status_msg);
   return;
@@ -337,6 +361,7 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     ROS_ERROR_STREAM("Pointcloud callback from invalid source");
     return;
   }
+
 
   ros::WallTime startTime = ros::WallTime::now();
 
@@ -440,6 +465,7 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     m_updateStatsPub.publish(stats_msg);
   }
 
+  m_last_cloud_received = ros::Time::now();
   publishAll(cloud->header.stamp);
 }
 
