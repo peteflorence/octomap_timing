@@ -212,7 +212,7 @@ protected:
   boost::recursive_mutex m_config_mutex;
   dynamic_reconfigure::Server<OctomapServerConfig> m_reconfigureServer;
   ros::Timer m_heartbeat_timer;
-  ros::Time m_last_cloud_received;
+  ros::Time m_last_cloud_stamp;
   bool m_first_cloud_received;
 
   OcTreeT* m_octree;

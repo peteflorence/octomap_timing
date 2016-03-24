@@ -330,14 +330,14 @@ void OctomapServer::heartbeatTimerCallback(const ros::TimerEvent& event) const
     status_msg.status = fla_msgs::ProcessStatus::INIT;
     status_msg.arg = 1; // "Waiting on point cloud"
   }
-  else if (m_last_cloud_received == ros::Time(0))
+  else if (m_last_cloud_stamp == ros::Time(0))
   {
     // ROS (sim) clock wasn't published yet
     // So we aren't ready
     status_msg.status = fla_msgs::ProcessStatus::INIT;
     status_msg.arg = 2; // "Waiting on ROS clock"
   }
-  else if(ros::Time::now() - m_last_cloud_received > ros::Duration(0.5))
+  else if(ros::Time::now() - m_last_cloud_stamp > ros::Duration(0.5))
   {
     // It's been over 0.5 seconds since we got an input cloud
     // Raise alarm
@@ -465,7 +465,8 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     m_updateStatsPub.publish(stats_msg);
   }
 
-  m_last_cloud_received = ros::Time::now();
+  m_first_cloud_received = true;
+  m_last_cloud_stamp = ros::Time::now();
   publishAll(cloud->header.stamp);
 }
 
