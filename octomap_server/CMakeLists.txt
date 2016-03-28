@@ -10,7 +10,8 @@ set(PACKAGE_DEPENDENCIES
   nav_msgs
   std_msgs
   std_srvs
-  perception_metrics_msgs
+  fla_msgs
+  octomap_metrics_msgs
   octomap_ros
   octomap_msgs
   dynamic_reconfigure
