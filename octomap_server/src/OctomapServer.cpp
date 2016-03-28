@@ -324,6 +324,8 @@ void OctomapServer::heartbeatTimerCallback(const ros::TimerEvent& event) const
   fla_msgs::ProcessStatus status_msg;
   status_msg.id = 30; // FLA node id
   status_msg.pid = getpid();
+  double sec_since_last_cloud = (ros::Time::now() - m_last_cloud_stamp).toSec();
+
   if (!m_first_cloud_received)
   {
     // We haven't yet received our first input cloud
@@ -337,12 +339,19 @@ void OctomapServer::heartbeatTimerCallback(const ros::TimerEvent& event) const
     status_msg.status = fla_msgs::ProcessStatus::INIT;
     status_msg.arg = 2; // "Waiting on ROS clock"
   }
-  else if(ros::Time::now() - m_last_cloud_stamp > ros::Duration(0.5))
+  else if (sec_since_last_cloud > 2.0)
+  {
+    // Haven't received an input cloud in over 2.0 seconds
+    // Something is deeply messed up with this reality
+    status_msg.status = fla_msgs::ProcessStatus::FAIL;
+    status_msg.arg = 3; // "No input clouds received in a long time. Ted would want us to land."
+  }
+  else if (sec_since_last_cloud > 0.5)
   {
     // It's been over 0.5 seconds since we got an input cloud
     // Raise alarm
     status_msg.status = fla_msgs::ProcessStatus::ALARM;
-    status_msg.arg = 1; // "Time since last input cloud longer than expected"
+    status_msg.arg = 4; // "Time since last input cloud longer than expected"
   }
   else
   {
