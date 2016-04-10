@@ -7,5 +7,5 @@ float64       max_range
 uint64        num_cloud_points
 
 float64       latency_s
-
+float64       time_since_last_update_s
 float64       update_s

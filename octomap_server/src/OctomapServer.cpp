@@ -468,7 +468,8 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     stats_msg.header.stamp = ros::Time::now();
     stats_msg.cloud_src_id = src_id;
     stats_msg.num_cloud_points = pc_ground.size() + pc_nonground.size();
-    stats_msg.latency_s = ros::Duration(stats_msg.header.stamp - cloud->header.stamp).toSec();
+    stats_msg.latency_s = (stats_msg.header.stamp - cloud->header.stamp).toSec();
+    stats_msg.time_since_last_update_s = (stats_msg.header.stamp - m_last_cloud_stamp).toSec();
     stats_msg.update_s = total_elapsed;
 
     m_updateStatsPub.publish(stats_msg);
