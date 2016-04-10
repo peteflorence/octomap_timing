@@ -222,16 +222,12 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
 
   for (std::size_t i=0; i < m_num_cloud_streams; ++i)
   {
-    char buffer[32];
-    if (i == 0)
+    std::string stream_name("cloud_in");
+    if (i > 0)
     {
-      sprintf(buffer, "cloud_in");
+      stream_name += boost::to_string(i);
     }
-    else
-    {
-      sprintf(buffer, "cloud_in%d", (int) i);
-    }
-    m_pointCloudSubVec.push_back(new message_filters::Subscriber<sensor_msgs::PointCloud2> (m_nh, buffer, 5));
+    m_pointCloudSubVec.push_back(new message_filters::Subscriber<sensor_msgs::PointCloud2> (m_nh, stream_name, 5));
     m_tfPointCloudSubVec.push_back(new tf::MessageFilter<sensor_msgs::PointCloud2> (*m_pointCloudSubVec[i], m_tfListener, m_worldFrameId, 5));
     m_tfPointCloudSubVec[i]->registerCallback(boost::bind(&OctomapServer::insertCloudCallback, this, _1, i));   // bind source id i to callback
   }
