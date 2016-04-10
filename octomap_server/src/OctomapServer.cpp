@@ -101,6 +101,9 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_occupancyMinZ(-std::numeric_limits<double>::max()),
   m_occupancyMaxZ(std::numeric_limits<double>::max()),
   m_minSizeX(0.0), m_minSizeY(0.0),
+  m_startBBoxMinX(0.0), m_startBBoxMinY(0.0),
+  m_startBBoxMaxX(0.0), m_startBBoxMaxY(0.0),
+  m_init_from_bbox(true),
   m_filterSpeckles(false), m_filterGroundPlane(false),
   m_groundFilterDistance(0.04), m_groundFilterAngle(0.15), m_groundFilterPlaneDistance(0.07),
   m_compressMap(true),
@@ -126,6 +129,14 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   private_nh.param("occupancy_max_z", m_occupancyMaxZ,m_occupancyMaxZ);
   private_nh.param("min_x_size", m_minSizeX,m_minSizeX);
   private_nh.param("min_y_size", m_minSizeY,m_minSizeY);
+
+  // get starting bbox params if available
+  m_init_from_bbox = true;
+  m_init_from_bbox &= private_nh.getParam("start_bbox_min_x", m_startBBoxMinX);
+  m_init_from_bbox &= private_nh.getParam("start_bbox_min_y", m_startBBoxMinY);
+  m_init_from_bbox &= private_nh.getParam("start_bbox_max_x", m_startBBoxMaxX);
+  m_init_from_bbox &= private_nh.getParam("start_bbox_max_y", m_startBBoxMaxY);
+  ROS_ERROR("init from bbox %d, box (%f,%f) -> (%f, %f)", (int) m_init_from_bbox, m_startBBoxMinX, m_startBBoxMinY, m_startBBoxMaxX, m_startBBoxMaxY);
 
   private_nh.param("filter_speckles", m_filterSpeckles, m_filterSpeckles);
   private_nh.param("filter_ground", m_filterGroundPlane, m_filterGroundPlane);
@@ -222,16 +233,12 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
 
   for (std::size_t i=0; i < m_num_cloud_streams; ++i)
   {
-    char buffer[32];
-    if (i == 0)
+    std::string stream_name("cloud_in");
+    if (i > 0)
     {
-      sprintf(buffer, "cloud_in");
+      stream_name += boost::to_string(i);
     }
-    else
-    {
-      sprintf(buffer, "cloud_in%d", (int) i);
-    }
-    m_pointCloudSubVec.push_back(new message_filters::Subscriber<sensor_msgs::PointCloud2> (m_nh, buffer, 5));
+    m_pointCloudSubVec.push_back(new message_filters::Subscriber<sensor_msgs::PointCloud2> (m_nh, stream_name, 5));
     m_tfPointCloudSubVec.push_back(new tf::MessageFilter<sensor_msgs::PointCloud2> (*m_pointCloudSubVec[i], m_tfListener, m_worldFrameId, 5));
     m_tfPointCloudSubVec[i]->registerCallback(boost::bind(&OctomapServer::insertCloudCallback, this, _1, i));   // bind source id i to callback
   }
@@ -468,7 +475,8 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     stats_msg.header.stamp = ros::Time::now();
     stats_msg.cloud_src_id = src_id;
     stats_msg.num_cloud_points = pc_ground.size() + pc_nonground.size();
-    stats_msg.latency_s = ros::Duration(stats_msg.header.stamp - cloud->header.stamp).toSec();
+    stats_msg.latency_s = (stats_msg.header.stamp - cloud->header.stamp).toSec();
+    stats_msg.time_since_last_update_s = (stats_msg.header.stamp - m_last_cloud_stamp).toSec();
     stats_msg.update_s = total_elapsed;
 
     m_updateStatsPub.publish(stats_msg);
@@ -1063,6 +1071,15 @@ void OctomapServer::handlePreNodeTraversal(const ros::Time& rostime){
     double minX, minY, minZ, maxX, maxY, maxZ;
     m_octree->getMetricMin(minX, minY, minZ);
     m_octree->getMetricMax(maxX, maxY, maxZ);
+
+    // Enforce min bbox if parameters were specified
+    if (m_init_from_bbox)
+    {
+      minX = std::min(minX, m_startBBoxMinX);
+      minY = std::min(minY, m_startBBoxMinY);
+      maxX = std::max(maxX, m_startBBoxMaxX);
+      maxY = std::max(maxY, m_startBBoxMaxY);
+    }
 
     octomap::point3d minPt(minX, minY, minZ);
     octomap::point3d maxPt(maxX, maxY, maxZ);

@@ -249,6 +249,11 @@ protected:
   double m_occupancyMaxZ;
   double m_minSizeX;
   double m_minSizeY;
+  double m_startBBoxMinX;
+  double m_startBBoxMinY;
+  double m_startBBoxMaxX;
+  double m_startBBoxMaxY;
+  bool m_init_from_bbox;;
   bool m_filterSpeckles;
 
   bool m_filterGroundPlane;
