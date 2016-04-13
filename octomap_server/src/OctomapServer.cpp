@@ -136,7 +136,6 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_init_from_bbox &= private_nh.getParam("start_bbox_min_y", m_startBBoxMinY);
   m_init_from_bbox &= private_nh.getParam("start_bbox_max_x", m_startBBoxMaxX);
   m_init_from_bbox &= private_nh.getParam("start_bbox_max_y", m_startBBoxMaxY);
-  ROS_ERROR("init from bbox %d, box (%f,%f) -> (%f, %f)", (int) m_init_from_bbox, m_startBBoxMinX, m_startBBoxMinY, m_startBBoxMaxX, m_startBBoxMaxY);
 
   private_nh.param("filter_speckles", m_filterSpeckles, m_filterSpeckles);
   private_nh.param("filter_ground", m_filterGroundPlane, m_filterGroundPlane);
