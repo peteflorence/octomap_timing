@@ -336,7 +336,7 @@ void OctomapServer::heartbeatTimerCallback(const ros::TimerEvent& event) const
   {
     // We haven't yet received our first input cloud
     status_msg.status = fla_msgs::ProcessStatus::INIT;
-    status_msg.arg = 1; // "Waiting on point cloud"
+    status_msg.arg = 1; // "Waiting on first point cloud"
   }
   else if (m_last_cloud_stamp == ros::Time(0))
   {
@@ -467,22 +467,24 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   double total_elapsed = (ros::WallTime::now() - startTime).toSec();
   ROS_DEBUG("Pointcloud insertion in OctomapServer done (%zu+%zu pts (ground/nonground), %f sec)", pc_ground.size(), pc_nonground.size(), total_elapsed);
 
+  ros::Time t_update = ros::Time::now();
   if (m_publishUpdateStats)
   {
     octomap_metrics_msgs::OctomapUpdateStats stats_msg;
     stats_msg.header.frame_id = cloud->header.frame_id;
-    stats_msg.header.stamp = ros::Time::now();
+    stats_msg.header.stamp = t_update;
     stats_msg.cloud_src_id = src_id;
     stats_msg.num_cloud_points = pc_ground.size() + pc_nonground.size();
-    stats_msg.latency_s = (stats_msg.header.stamp - cloud->header.stamp).toSec();
-    stats_msg.time_since_last_update_s = (stats_msg.header.stamp - m_last_cloud_stamp).toSec();
+    stats_msg.latency_s = (t_update - cloud->header.stamp).toSec();
+    stats_msg.time_since_last_update_s = (t_update - m_last_update_stamp).toSec();
     stats_msg.update_s = total_elapsed;
 
     m_updateStatsPub.publish(stats_msg);
   }
 
   m_first_cloud_received = true;
-  m_last_cloud_stamp = ros::Time::now();
+  m_last_cloud_stamp = cloud->header.stamp;
+  m_last_update_stamp = t_update;
   publishAll(cloud->header.stamp);
 }
 
