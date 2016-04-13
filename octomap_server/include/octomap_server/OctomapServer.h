@@ -213,6 +213,7 @@ protected:
   dynamic_reconfigure::Server<OctomapServerConfig> m_reconfigureServer;
   ros::Timer m_heartbeat_timer;
   ros::Time m_last_cloud_stamp;
+  ros::Time m_last_update_stamp;
   bool m_first_cloud_received;
 
   OcTreeT* m_octree;
