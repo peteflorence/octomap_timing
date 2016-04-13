@@ -136,7 +136,6 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_init_from_bbox &= private_nh.getParam("start_bbox_min_y", m_startBBoxMinY);
   m_init_from_bbox &= private_nh.getParam("start_bbox_max_x", m_startBBoxMaxX);
   m_init_from_bbox &= private_nh.getParam("start_bbox_max_y", m_startBBoxMaxY);
-  ROS_ERROR("init from bbox %d, box (%f,%f) -> (%f, %f)", (int) m_init_from_bbox, m_startBBoxMinX, m_startBBoxMinY, m_startBBoxMaxX, m_startBBoxMaxY);
 
   private_nh.param("filter_speckles", m_filterSpeckles, m_filterSpeckles);
   private_nh.param("filter_ground", m_filterGroundPlane, m_filterGroundPlane);
@@ -238,7 +237,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
     {
       stream_name += boost::to_string(i);
     }
-    m_pointCloudSubVec.push_back(new message_filters::Subscriber<sensor_msgs::PointCloud2> (m_nh, stream_name, 5));
+    m_pointCloudSubVec.push_back(new message_filters::Subscriber<sensor_msgs::PointCloud2> (m_nh, stream_name, 1));
     m_tfPointCloudSubVec.push_back(new tf::MessageFilter<sensor_msgs::PointCloud2> (*m_pointCloudSubVec[i], m_tfListener, m_worldFrameId, 5));
     m_tfPointCloudSubVec[i]->registerCallback(boost::bind(&OctomapServer::insertCloudCallback, this, _1, i));   // bind source id i to callback
   }
@@ -337,7 +336,7 @@ void OctomapServer::heartbeatTimerCallback(const ros::TimerEvent& event) const
   {
     // We haven't yet received our first input cloud
     status_msg.status = fla_msgs::ProcessStatus::INIT;
-    status_msg.arg = 1; // "Waiting on point cloud"
+    status_msg.arg = 1; // "Waiting on first point cloud"
   }
   else if (m_last_cloud_stamp == ros::Time(0))
   {
@@ -468,22 +467,24 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   double total_elapsed = (ros::WallTime::now() - startTime).toSec();
   ROS_DEBUG("Pointcloud insertion in OctomapServer done (%zu+%zu pts (ground/nonground), %f sec)", pc_ground.size(), pc_nonground.size(), total_elapsed);
 
+  ros::Time t_update = ros::Time::now();
   if (m_publishUpdateStats)
   {
     octomap_metrics_msgs::OctomapUpdateStats stats_msg;
     stats_msg.header.frame_id = cloud->header.frame_id;
-    stats_msg.header.stamp = ros::Time::now();
+    stats_msg.header.stamp = t_update;
     stats_msg.cloud_src_id = src_id;
     stats_msg.num_cloud_points = pc_ground.size() + pc_nonground.size();
-    stats_msg.latency_s = (stats_msg.header.stamp - cloud->header.stamp).toSec();
-    stats_msg.time_since_last_update_s = (stats_msg.header.stamp - m_last_cloud_stamp).toSec();
+    stats_msg.latency_s = (t_update - cloud->header.stamp).toSec();
+    stats_msg.time_since_last_update_s = (t_update - m_last_update_stamp).toSec();
     stats_msg.update_s = total_elapsed;
 
     m_updateStatsPub.publish(stats_msg);
   }
 
   m_first_cloud_received = true;
-  m_last_cloud_stamp = ros::Time::now();
+  m_last_cloud_stamp = cloud->header.stamp;
+  m_last_update_stamp = t_update;
   publishAll(cloud->header.stamp);
 }
 
