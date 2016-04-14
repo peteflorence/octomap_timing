@@ -105,6 +105,8 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_startBBoxMaxX(0.0), m_startBBoxMaxY(0.0),
   m_init_from_bbox(true),
   m_filterSpeckles(false), m_filterGroundPlane(false),
+  m_cloud_sub_queue_size(1),
+  m_cloud_tf_filter_queue_size(5),
   m_groundFilterDistance(0.04), m_groundFilterAngle(0.15), m_groundFilterPlaneDistance(0.07),
   m_compressMap(true),
   m_incrementalUpdate(false),
@@ -129,6 +131,8 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   private_nh.param("occupancy_max_z", m_occupancyMaxZ,m_occupancyMaxZ);
   private_nh.param("min_x_size", m_minSizeX,m_minSizeX);
   private_nh.param("min_y_size", m_minSizeY,m_minSizeY);
+  private_nh.param("cloud_sub_queue_size", m_cloud_sub_queue_size, m_cloud_sub_queue_size);
+  private_nh.param("cloud_tf_filter_queue_size", m_cloud_tf_filter_queue_size, m_cloud_tf_filter_queue_size);
 
   // get starting bbox params if available
   m_init_from_bbox = true;
@@ -237,8 +241,8 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
     {
       stream_name += boost::to_string(i);
     }
-    m_pointCloudSubVec.push_back(new message_filters::Subscriber<sensor_msgs::PointCloud2> (m_nh, stream_name, 1));
-    m_tfPointCloudSubVec.push_back(new tf::MessageFilter<sensor_msgs::PointCloud2> (*m_pointCloudSubVec[i], m_tfListener, m_worldFrameId, 5));
+    m_pointCloudSubVec.push_back(new message_filters::Subscriber<sensor_msgs::PointCloud2> (m_nh, stream_name, m_cloud_sub_queue_size));
+    m_tfPointCloudSubVec.push_back(new tf::MessageFilter<sensor_msgs::PointCloud2> (*m_pointCloudSubVec[i], m_tfListener, m_worldFrameId, m_cloud_tf_filter_queue_size));
     m_tfPointCloudSubVec[i]->registerCallback(boost::bind(&OctomapServer::insertCloudCallback, this, _1, i));   // bind source id i to callback
   }
 
