@@ -256,6 +256,8 @@ protected:
   double m_startBBoxMaxY;
   bool m_init_from_bbox;;
   bool m_filterSpeckles;
+  int m_cloud_sub_queue_size;
+  int m_cloud_tf_filter_queue_size;
 
   bool m_filterGroundPlane;
   double m_groundFilterDistance;
