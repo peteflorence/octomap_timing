@@ -370,7 +370,12 @@ void OctomapServer::heartbeatTimerCallback(const ros::TimerEvent& event) const
     status_msg.arg = 0;
   }
 
-  m_heartbeatPub.publish(status_msg);
+  // Only publish if not in init state -- should prevent going silent after sending first message
+  if (status_msg.status != fla_msgs::ProcessStatus::INIT)
+  {
+    m_heartbeatPub.publish(status_msg);
+  }
+
   return;
 }
 
