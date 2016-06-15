@@ -386,8 +386,8 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     return;
   }
 
-
-  ros::WallTime startTime = ros::WallTime::now();
+  ros::Time startTime = ros::Time::now();
+  ros::WallTime startWallTime = ros::WallTime::now();
 
   //
   // ground filtering in base frame
@@ -473,20 +473,28 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
 
   insertScan(sensorToWorldTf.getOrigin(), pc_ground, pc_nonground, m_cloud_streams_maxRange[src_id]);
 
-  double total_elapsed = (ros::WallTime::now() - startTime).toSec();
-  ROS_DEBUG("Pointcloud insertion in OctomapServer done (%zu+%zu pts (ground/nonground), %f sec)", pc_ground.size(), pc_nonground.size(), total_elapsed);
-
   ros::Time t_update = ros::Time::now();
+  ros::WallTime t_update_wall = ros::WallTime::now();
+  double elapsed_update = (t_update_wall - startWallTime).toSec();
+  ROS_DEBUG("Pointcloud insertion in OctomapServer done (%zu+%zu pts (ground/nonground), %f sec)", pc_ground.size(), pc_nonground.size(), elapsed_update);
+
+  publishAll(cloud->header.stamp);
+  ros::Time t_pub = ros::Time::now();
+  double elapsed_publish = (ros::WallTime::now() - t_update_wall).toSec();
+
   if (m_publishUpdateStats)
   {
     octomap_metrics_msgs::OctomapUpdateStats stats_msg;
     stats_msg.header.frame_id = cloud->header.frame_id;
-    stats_msg.header.stamp = t_update;
+    stats_msg.header.stamp = cloud->header.stamp;
     stats_msg.cloud_src_id = src_id;
     stats_msg.num_cloud_points = pc_ground.size() + pc_nonground.size();
     stats_msg.latency_s = (t_update - cloud->header.stamp).toSec();
     stats_msg.time_since_last_update_s = (t_update - m_last_update_stamp).toSec();
-    stats_msg.update_s = total_elapsed;
+    stats_msg.update_s = elapsed_update;
+    stats_msg.publish_s = elapsed_publish;
+    stats_msg.latency_cloud = startTime.toSec() - cloud->header.stamp.toSec();
+    stats_msg.latency_pub = t_pub.toSec() - cloud->header.stamp.toSec();
 
     m_updateStatsPub.publish(stats_msg);
   }
@@ -494,7 +502,6 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   m_first_cloud_received = true;
   m_last_cloud_stamp = cloud->header.stamp;
   m_last_update_stamp = t_update;
-  publishAll(cloud->header.stamp);
 }
 
 void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const PCLPointCloud& ground, const PCLPointCloud& nonground, double maxRange){
