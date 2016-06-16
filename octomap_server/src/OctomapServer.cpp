@@ -493,9 +493,9 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     stats_msg.time_since_last_update_s = (t_update - m_last_update_stamp).toSec();
     stats_msg.update_s = elapsed_update;
     stats_msg.publish_s = elapsed_publish;
-    stats_msg.latency_cloud = startTime.toSec() - cloud->header.stamp.toSec();
-    stats_msg.latency_pub = t_pub.toSec() - cloud->header.stamp.toSec();
-    stats_msg.latency_pose = startTime.toSec() - sensorToWorldTf.stamp_.toSec();
+    stats_msg.latency_cloud = (startTime - cloud->header.stamp).toSec();
+    stats_msg.latency_pub = (t_pub - cloud->header.stamp).toSec();
+    stats_msg.latency_pose = (startTime - sensorToWorldTf.stamp_).toSec();
 
     m_updateStatsPub.publish(stats_msg);
   }
