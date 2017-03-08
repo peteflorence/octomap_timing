@@ -88,7 +88,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_latchedTopics(true),
   m_publishFreeSpace(false),
   m_num_cloud_streams(1),
-  m_publishUpdateStats(false),
+  m_publishUpdateStats(true),
   m_res(0.05),
   m_treeDepth(0),
   m_maxTreeDepth(0),
@@ -221,7 +221,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   } else
     ROS_INFO("Publishing non-latched (topics are only prepared as needed, will only be re-published on map change");
 
-  private_nh.param("publish_update_stats", m_publishUpdateStats, m_publishUpdateStats);
+  //private_nh.param("publish_update_stats", m_publishUpdateStats, m_publishUpdateStats);
 
   m_markerPub = m_nh.advertise<visualization_msgs::MarkerArray>("occupied_cells_vis_array", 1, m_latchedTopics);
   m_binaryMapPub = m_nh.advertise<Octomap>("octomap_binary", 1, m_latchedTopics);
@@ -499,6 +499,15 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
 
     m_updateStatsPub.publish(stats_msg);
   }
+
+  std::ofstream myfile; 
+  myfile.open("/home/peteflo/fla-gtsc/fla_root/fsw/src/external/octomap_mapping/octomap_server/timing.txt", std::ios_base::app);
+  if (myfile.is_open())
+  {
+    myfile << cloud->header.seq << " " << startTime - cloud->header.stamp << " " << startTime << std::endl;
+    myfile.close();
+  }
+  else std::cout << "Unable to open file";
 
   m_first_cloud_received = true;
   m_last_cloud_stamp = cloud->header.stamp;

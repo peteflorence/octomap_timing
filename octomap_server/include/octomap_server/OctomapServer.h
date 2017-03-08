@@ -70,6 +70,9 @@
 #include <octomap/octomap.h>
 #include <octomap/OcTreeKey.h>
 
+#include <fstream>
+#include <iostream>
+
 //#define COLOR_OCTOMAP_SERVER // turned off here, turned on identical ColorOctomapServer.h - easier maintenance, only maintain OctomapServer and then copy and paste to ColorOctomapServer and change define. There are prettier ways to do this, but this works for now
 
 #ifdef COLOR_OCTOMAP_SERVER
@@ -80,6 +83,7 @@ namespace octomap_server {
 class OctomapServer {
 
 public:
+  std::ofstream ofs;
 #ifdef COLOR_OCTOMAP_SERVER
   typedef pcl::PointXYZRGB PCLPoint;
   typedef pcl::PointCloud<pcl::PointXYZRGB> PCLPointCloud;
